@@ -1,0 +1,32 @@
+#pragma once
+#include <JuceHeader.h>
+#include "PlayerAudio.h"
+#include "PlayerGUI.h"
+
+class MainComponent : public juce::AudioAppComponent,
+                      public PlayerGUI::SessionListener
+{
+public:
+    MainComponent();
+    ~MainComponent() override;
+
+    void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override;
+    void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override;
+    void releaseResources() override;
+    void paint (juce::Graphics&) override;
+    void resized() override;
+
+    void saveSessionRequest() override;
+    void loadSessionRequest() override;
+
+    void savePlaylist(const juce::StringArray& playlist);
+    juce::StringArray loadPlaylist();
+
+private:
+    PlayerAudio player;
+    PlayerGUI gui { player };
+    juce::File settingsFile;
+    std::unique_ptr<juce::PropertiesFile> appProperties;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
+};

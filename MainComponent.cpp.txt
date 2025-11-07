@@ -1,0 +1,132 @@
+#include "MainComponent.h"
+
+MainComponent::MainComponent()
+{
+    gui.setSessionListener(this);
+    settingsFile = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                       .getChildFile("EnhancedPlayer")
+                       .getChildFile("settings.xml");
+    settingsFile.getParentDirectory().createDirectory();
+
+    juce::PropertiesFile::Options opts;
+    opts.applicationName = "EnhancedAudioPlayer";
+    opts.filenameSuffix = "settings";
+    opts.folderName = "EnhancedPlayer";
+    opts.osxLibrarySubFolder = "Application Support";
+    appProperties.reset(new juce::PropertiesFile(opts));
+
+    if (appProperties && appProperties->getValue("LastFilePath").isNotEmpty()) {
+        juce::File lastFile(appProperties->getValue("LastFilePath"));
+        double lastPos = appProperties->getDoubleValue("LastPosition", 0.0);
+        if (lastFile.existsAsFile()) {
+            player.loadURL(juce::URL(lastFile));
+            player.setPosition(lastPos);
+        }
+    }
+
+    addAndMakeVisible(gui);
+    setAudioChannels(0, 2);
+    setSize(900, 600);
+}
+
+MainComponent::~MainComponent()
+{
+    if (appProperties) {
+        appProperties->setValue("LastFilePath", player.getCurrentFile().getFullPathName());
+        appProperties->setValue("LastPosition", player.getPosition());
+        appProperties->saveIfNeeded();
+    }
+    shutdownAudio();
+}
+
+void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
+{
+    player.prepareToPlay(samplesPerBlockExpected, sampleRate);
+}
+
+void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
+{
+    player.getNextAudioBlock(bufferToFill);
+}
+
+void MainComponent::releaseResources()
+{
+    player.releaseResources();
+}
+
+void MainComponent::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colours::black);
+}
+
+void MainComponent::resized()
+{
+    gui.setBounds(getLocalBounds());
+}
+
+void MainComponent::saveSessionRequest()
+{
+    if (appProperties) {
+        appProperties->setValue("LastFilePath", player.getCurrentFile().getFullPathName());
+        appProperties->setValue("LastPosition", player.getPosition());
+        appProperties->saveIfNeeded();
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::AlertWindow::InfoIcon,
+            "Session Saved",
+            "Current session has been saved successfully.");
+    }
+}
+
+void MainComponent::loadSessionRequest()
+{
+    if (appProperties)
+    {
+        auto lastPath = appProperties->getValue("LastFilePath");
+        double lastPos = appProperties->getDoubleValue("LastPosition", 0.0);
+
+        if (lastPath.isNotEmpty())
+        {
+            juce::File file(lastPath);
+            if (file.existsAsFile())
+            {
+                player.loadURL(juce::URL(file));
+                player.setPosition(lastPos);
+                player.play();
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::AlertWindow::InfoIcon,
+                    "Session Loaded",
+                    "Restored last file:\n" + file.getFileName() + 
+                    "\nPosition: " + juce::String(lastPos, 2) + "s");
+            }
+            else
+            {
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::AlertWindow::WarningIcon,
+                    "Load Session",
+                    "Saved file not found on disk.");
+            }
+        }
+        else
+        {
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::WarningIcon,
+                "Load Session",
+                "No session data found.");
+        }
+    }
+}
+
+void MainComponent::savePlaylist(const juce::StringArray& playlist)
+{
+    if (appProperties) {
+        appProperties->setValue("Playlist", playlist.joinIntoString(";"));
+        appProperties->saveIfNeeded();
+    }
+}
+
+juce::StringArray MainComponent::loadPlaylist()
+{
+    if (appProperties)
+        return juce::StringArray::fromTokens(appProperties->getValue("Playlist"), ";", "");
+    return {};
+}

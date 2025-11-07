@@ -1,0 +1,50 @@
+#include <JuceHeader.h>
+#include "MainComponent.h"
+
+class EnhancedPlayerApp : public juce::JUCEApplication
+{
+public:
+    const juce::String getApplicationName() override  { return "Enhanced Audio Player"; }
+    const juce::String getApplicationVersion() override { return "2.0"; }
+
+    void initialise (const juce::String&) override
+    {
+        mainWindow.reset (new MainWindow ("Enhanced Audio Player", new MainComponent(), *this));
+    }
+
+    void shutdown() override { mainWindow = nullptr; }
+
+    class MainWindow : public juce::DocumentWindow
+    {
+    public:
+        MainWindow (juce::String name, juce::Component* c, JUCEApplication& a)
+            : DocumentWindow (name,
+                              juce::Desktop::getInstance().getDefaultLookAndFeel()
+                                  .findColour (ResizableWindow::backgroundColourId),
+                              DocumentWindow::allButtons),
+              app (a)
+        {
+            setUsingNativeTitleBar (true);
+            setContentOwned (c, true);
+            setResizable (true, true);
+            setResizeLimits(600, 400, 1600, 1200);
+            centreWithSize (900, 600);
+            setVisible (true);
+        }
+
+        void closeButtonPressed() override 
+        { 
+            if (auto* main = dynamic_cast<MainComponent*>(getContentComponent()))
+                main->saveSessionRequest();
+            app.systemRequestedQuit(); 
+        }
+
+    private:
+        JUCEApplication& app;
+    };
+
+private:
+    std::unique_ptr<MainWindow> mainWindow;
+};
+
+START_JUCE_APPLICATION (EnhancedPlayerApp)
